@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QApplication, QVBoxLayout, QMainWindow, QWidget, QLi
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import Qt, QUrl
 import tempfile
-from scipy.special import gamma  # Import Gamma function
+from scipy import special
 
 class PlotlyApp(QMainWindow):
     def __init__(self):
@@ -369,7 +369,8 @@ class PlotlyApp(QMainWindow):
                 'dstack': np.dstack,
                 'column_stack': np.column_stack,
                 'transpose': np.transpose,
-                'gamma': gamma  # Include scipy functions if needed
+                'gamma': special.gamma,  # Include scipy functions if needed
+                'factorial': lambda x: special.gamma(x-1)
             }
 
             # Define a function that will evaluate the expressions
