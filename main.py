@@ -368,8 +368,6 @@ class PlotlyApp(QMainWindow):
             def f(z):
                 # Dynamically evaluate Z function based on the input expression
                 z_expr = z_function.replace('X', 'z.real').replace('Y', 'z.imag')
-                # Print for debugging to see the evaluated Z expression
-                print(f"Evaluating Z function: {z_expr}")
                 z_value = eval(z_expr, {"__builtins__": None}, {'z': z, 'X': z.real, 'Y': z.imag})
                 return eval(func_expr, {"__builtins__": None}, {**safe_locals, 'z': z_value, 'X': z_value.real, 'Y': z_value.imag})
 
@@ -387,24 +385,20 @@ class PlotlyApp(QMainWindow):
                 
                 # Dynamically generate Z based on user input
                 Z = eval(z_function.replace('X', 'X').replace('Y', 'Y'))
-                
-                print(f"Calculated Z: {Z}")  # Debug print to check Z
-
                 F = f(Z)
             except Exception as e:
                 return e
 
             magnitude = np.abs(F)
             phase = np.angle(F) / np.pi
-
             self.colorscale = self.colormap.currentText()
 
             colorscale_settings = dict(
                 colorscale=self.colorscale,
                 colorbar=dict(
                     title="Phase (π units)",
-                    tickvals=[-1, -0.5, 0, 0.5, 1],
-                    ticktext=["-π", "-π/2", "0", "π/2", "π"],
+                    tickvals=[-1, -0.5, 0, 0.5, 1],  # Full range from -π to π
+                    ticktext=["-π", "-π/2", "0", "π/2", "π"],  # Corresponding labels
                     tickmode="array"
                 )
             )
@@ -426,8 +420,19 @@ class PlotlyApp(QMainWindow):
 
             # Real part of the function trace
             real_z = np.linspace(x_min, x_max, 200)
-            F_real = f(real_z)
-            fig_real.add_trace(go.Scatter(x=real_z, y=np.real(F_real), mode='lines', line=dict(color='blue')))
+            try:
+                F_real = f(real_z)
+                fig_real.add_trace(go.Scatter(x=real_z, y=np.real(F_real), mode='lines', line=dict(color='blue')))
+            except Exception as e:
+                fig_real.add_annotation(
+                    x=0.5,
+                    y=0.5,
+                    text=f"Error: {str(e)}",  # Show the error message on the plot
+                    showarrow=False,
+                    font=dict(size=16, color="red"),
+                    align="center",
+                    bgcolor="rgba(255, 255, 255, 0.7)"
+                )
 
         # Apply Z-axis limits to each plot
         z_axis_limits = dict(range=[z_min, z_max])
