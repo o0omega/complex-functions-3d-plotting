@@ -517,24 +517,20 @@ class PlotlyApp(QMainWindow):
         self.real_function_view.load(QUrl.fromLocalFile(temp_file_real_func_2d.name))
 
     def sanitize_function_input(self, func_expr):
-        # Replace 'i' with '1j' only when it's standalone or part of a complex expression
-        # Example: sin(z) + i => sin(z) + 1j
-        # We use regex to make sure we replace only when i is not inside a function or variable name
-
-        # This regex looks for 'i' that is not preceded by an alphanumeric character or a '('
+        # Replace 'i' with '1j' when it's standalone or part of an expression like z + i
         func_expr = re.sub(r'(?<![a-zA-Z0-9\(\)])\bi\b(?![a-zA-Z0-9\)])', '1j', func_expr)
+
+        # Replace i after a '+' or '-' sign when it's part of an expression, like in z + i or z - i
+        func_expr = re.sub(r'(?<=\+|\-)\s*i\s*', '1j', func_expr)
+
+        # Handle cases where i is part of an exponentiation expression (e.g., **i or ** 1j)
+        func_expr = re.sub(r'(?<=\*\*)\s*i\s*', '**1j', func_expr)
 
         # Return the sanitized function expression
         return func_expr
 
-
-
-
-
-
     def update_plot(self):
         self.create_plot()  # Call create_plot to update the graphs
-
 
 def set_dark_mode(app):
     dark_stylesheet = """
