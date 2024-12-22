@@ -1,4 +1,4 @@
-import sys
+import sys, re
 import numpy as np
 import plotly.graph_objects as go
 from PyQt5.QtWidgets import QApplication, QVBoxLayout, QMainWindow, QWidget, QLineEdit, QPushButton, QHBoxLayout, QGridLayout, QLabel, QSpacerItem, QSizePolicy, QSplitter, QScrollArea, QCheckBox, QButtonGroup, QComboBox
@@ -311,7 +311,7 @@ class PlotlyApp(QMainWindow):
                 self.remove_button.setVisible(False)
 
     def create_plot(self):
-        # Prepare the layout settings
+        # Prepare layout settings
         layout_settings = dict(
             plot_bgcolor='#121212',
             paper_bgcolor='#121212',
@@ -323,25 +323,32 @@ class PlotlyApp(QMainWindow):
         if not z_function:
             z_function = "X + 1j * Y"  # Default value if the input is empty
 
-        # Replace 'i' with '1j' and lowercase x/y to uppercase X/Y in the input expression
+        # Sanitize the z_function (replace i with 1j)
         z_function = z_function.replace('i', '1j')
-        z_function = z_function.replace('x', 'X').replace('y', 'Y')  # Convert lowercase to uppercase
 
-        # Initialize the figures for the different parts (real, imaginary, magnitude)
+        # Debugging: Check the z_function input
+        print(f"User input for z_function: {z_function}")
+
+        # Initialize figures
         fig_real_part = go.Figure()
         fig_imaginary_part = go.Figure()
         fig_3d = go.Figure()
         fig_real = go.Figure()
 
-        # Loop through the input fields and generate traces for each function
+        # Loop through the input fields for the functions
         for idx, field in enumerate(self.input_fields):
-            func_expr = field.text()
-            func_expr = func_expr.replace('i', '1j')
-            func_expr = func_expr.replace('x', 'X').replace('y', 'Y')  # Convert lowercase to uppercase
+            func_expr = field.text().strip()
 
-            if not any(var in func_expr for var in ['z', '1j']):
+            # Sanitize function input
+            func_expr = self.sanitize_function_input(func_expr)
+
+            # Debugging: Check the function input
+            print(f"User input for func_expr {idx}: {func_expr}")
+
+            if not any(var in func_expr for var in ['z', '1j']):  # Add z if not present in the expression
                 func_expr = f"({func_expr}) + 0*z"
 
+            # Define safe locals (mathematical functions)
             safe_locals = {
                 'np': np,
                 'sin': np.sin,
@@ -362,14 +369,27 @@ class PlotlyApp(QMainWindow):
                 'dstack': np.dstack,
                 'column_stack': np.column_stack,
                 'transpose': np.transpose,
-                'gamma': gamma
+                'gamma': gamma  # Include scipy functions if needed
             }
 
+            # Define a function that will evaluate the expressions
             def f(z):
-                # Dynamically evaluate Z function based on the input expression
+                # Replace X, Y with the real and imaginary parts of z in z_function only
                 z_expr = z_function.replace('X', 'z.real').replace('Y', 'z.imag')
-                z_value = eval(z_expr, {"__builtins__": None}, {'z': z, 'X': z.real, 'Y': z.imag})
-                return eval(func_expr, {"__builtins__": None}, {**safe_locals, 'z': z_value, 'X': z_value.real, 'Y': z_value.imag})
+                try:
+                    z_value = eval(z_expr, {"__builtins__": None}, {'z': z, 'X': z.real, 'Y': z.imag})
+                except Exception as e:
+                    print(f"Error in evaluating z_function: {e}")
+                    return None
+
+                # Debugging: Check how f(z) is being evaluated
+                print(f"Evaluating function f(z) for z={z_value}: {func_expr}")
+                try:
+                    result = eval(func_expr, {"__builtins__": None}, {**safe_locals, 'z': z_value, 'X': z_value.real, 'Y': z_value.imag})
+                    return result
+                except Exception as e:
+                    print(f"Error in evaluating function expression: {e}")
+                    return None
 
             try:
                 x_min = float(self.x_min_input.text()) if self.x_min_input.text() else -2
@@ -383,22 +403,33 @@ class PlotlyApp(QMainWindow):
                 y = np.linspace(y_min, y_max, 200)
                 X, Y = np.meshgrid(x, y)
                 
-                # Dynamically generate Z based on user input
+                # Dynamically generate Z based on the user's input for the Z function
                 Z = eval(z_function.replace('X', 'X').replace('Y', 'Y'))
                 F = f(Z)
+
+                if F is None:
+                    print("Error: f(Z) returned None.")
+                    return  # Early exit if f(Z) is None
+
             except Exception as e:
+                print(f"Error: {e}")
                 return e
+
+            if F is None:
+                print("Error: f(z) is None, skipping plot creation.")
+                return
 
             magnitude = np.abs(F)
             phase = np.angle(F) / np.pi
+
             self.colorscale = self.colormap.currentText()
 
             colorscale_settings = dict(
                 colorscale=self.colorscale,
                 colorbar=dict(
                     title="Phase (π units)",
-                    tickvals=[-1, -0.5, 0, 0.5, 1],  # Full range from -π to π
-                    ticktext=["-π", "-π/2", "0", "π/2", "π"],  # Corresponding labels
+                    tickvals=[-1, -0.5, 0, 0.5, 1],
+                    ticktext=["-π", "-π/2", "0", "π/2", "π"],
                     tickmode="array"
                 )
             )
@@ -420,19 +451,8 @@ class PlotlyApp(QMainWindow):
 
             # Real part of the function trace
             real_z = np.linspace(x_min, x_max, 200)
-            try:
-                F_real = f(real_z)
-                fig_real.add_trace(go.Scatter(x=real_z, y=np.real(F_real), mode='lines', line=dict(color='blue')))
-            except Exception as e:
-                fig_real.add_annotation(
-                    x=0.5,
-                    y=0.5,
-                    text=f"Error: {str(e)}",  # Show the error message on the plot
-                    showarrow=False,
-                    font=dict(size=16, color="red"),
-                    align="center",
-                    bgcolor="rgba(255, 255, 255, 0.7)"
-                )
+            F_real = f(real_z)
+            fig_real.add_trace(go.Scatter(x=real_z, y=np.real(F_real), mode='lines', line=dict(color='blue')))
 
         # Apply Z-axis limits to each plot
         z_axis_limits = dict(range=[z_min, z_max])
@@ -465,7 +485,7 @@ class PlotlyApp(QMainWindow):
                 xaxis_title="Re(z)",
                 yaxis_title="Im(z)",
                 zaxis_title="|f(z)|",
-                zaxis=dict(range=[0, z_max])  # Ensures the Z-axis starts at 0
+                zaxis=dict(range=[0, z_max])
             ),
             **layout_settings
         )
@@ -495,6 +515,22 @@ class PlotlyApp(QMainWindow):
         temp_file_real_func_2d = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
         fig_real.write_html(temp_file_real_func_2d.name)
         self.real_function_view.load(QUrl.fromLocalFile(temp_file_real_func_2d.name))
+
+    def sanitize_function_input(self, func_expr):
+        # Replace 'i' with '1j' only when it's standalone or part of a complex expression
+        # Example: sin(z) + i => sin(z) + 1j
+        # We use regex to make sure we replace only when i is not inside a function or variable name
+
+        # This regex looks for 'i' that is not preceded by an alphanumeric character or a '('
+        func_expr = re.sub(r'(?<![a-zA-Z0-9\(\)])\bi\b(?![a-zA-Z0-9\)])', '1j', func_expr)
+
+        # Return the sanitized function expression
+        return func_expr
+
+
+
+
+
 
     def update_plot(self):
         self.create_plot()  # Call create_plot to update the graphs
