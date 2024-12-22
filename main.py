@@ -491,10 +491,6 @@ class PlotlyApp(QMainWindow):
         fig_real.write_html(temp_file_real_func_2d.name)
         self.real_function_view.load(QUrl.fromLocalFile(temp_file_real_func_2d.name))
 
-
-
-
-
     def update_plot(self):
         self.create_plot()  # Call create_plot to update the graphs
 
