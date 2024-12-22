@@ -10,7 +10,7 @@ from scipy.special import gamma  # Import Gamma function
 class PlotlyApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Interactive 4D Complex Function Visualization")
+        self.setWindowTitle("Interactive Complex Function 3D-Plot With Colormap Visualization")
 
         central_widget = QWidget()
         layout = QHBoxLayout(central_widget)
@@ -79,6 +79,19 @@ class PlotlyApp(QMainWindow):
         update_button_widget = QWidget()
         update_button_layout = QVBoxLayout()
         update_button_widget.setLayout(update_button_layout)
+
+        # New input field for the Z function
+        z_layout = QGridLayout()
+        self.z_function_input = QLineEdit(self)
+        self.z_function_input.setPlaceholderText("x+i*y")
+        self.z_function_label = QLabel("z =", self)
+
+        z_layout.addWidget(self.z_function_label, 0, 0)
+        z_layout.addWidget(self.z_function_input, 0, 1)
+
+        # Add the z_layout to the parent layout (update_button_layout)
+        update_button_layout.addLayout(z_layout)
+
 
         update_button = QPushButton("Update Function", self)
         update_button.clicked.connect(self.update_plot)
@@ -305,6 +318,15 @@ class PlotlyApp(QMainWindow):
             font=dict(color='#e0e0e0')
         )
 
+        # Get the user input for the Z function (defaulting to "X + 1j * Y" if empty)
+        z_function = self.z_function_input.text().strip()
+        if not z_function:
+            z_function = "X + 1j * Y"  # Default value if the input is empty
+
+        # Replace 'i' with '1j' and lowercase x/y to uppercase X/Y in the input expression
+        z_function = z_function.replace('i', '1j')
+        z_function = z_function.replace('x', 'X').replace('y', 'Y')  # Convert lowercase to uppercase
+
         # Initialize the figures for the different parts (real, imaginary, magnitude)
         fig_real_part = go.Figure()
         fig_imaginary_part = go.Figure()
@@ -315,6 +337,7 @@ class PlotlyApp(QMainWindow):
         for idx, field in enumerate(self.input_fields):
             func_expr = field.text()
             func_expr = func_expr.replace('i', '1j')
+            func_expr = func_expr.replace('x', 'X').replace('y', 'Y')  # Convert lowercase to uppercase
 
             if not any(var in func_expr for var in ['z', '1j']):
                 func_expr = f"({func_expr}) + 0*z"
@@ -343,7 +366,12 @@ class PlotlyApp(QMainWindow):
             }
 
             def f(z):
-                return eval(func_expr, {"__builtins__": None}, {**safe_locals, 'z': z})
+                # Dynamically evaluate Z function based on the input expression
+                z_expr = z_function.replace('X', 'z.real').replace('Y', 'z.imag')
+                # Print for debugging to see the evaluated Z expression
+                print(f"Evaluating Z function: {z_expr}")
+                z_value = eval(z_expr, {"__builtins__": None}, {'z': z, 'X': z.real, 'Y': z.imag})
+                return eval(func_expr, {"__builtins__": None}, {**safe_locals, 'z': z_value, 'X': z_value.real, 'Y': z_value.imag})
 
             try:
                 x_min = float(self.x_min_input.text()) if self.x_min_input.text() else -2
@@ -356,7 +384,12 @@ class PlotlyApp(QMainWindow):
                 x = np.linspace(x_min, x_max, 200)
                 y = np.linspace(y_min, y_max, 200)
                 X, Y = np.meshgrid(x, y)
-                Z = X + 1j * Y
+                
+                # Dynamically generate Z based on user input
+                Z = eval(z_function.replace('X', 'X').replace('Y', 'Y'))
+                
+                print(f"Calculated Z: {Z}")  # Debug print to check Z
+
                 F = f(Z)
             except Exception as e:
                 return e
@@ -457,6 +490,9 @@ class PlotlyApp(QMainWindow):
         temp_file_real_func_2d = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
         fig_real.write_html(temp_file_real_func_2d.name)
         self.real_function_view.load(QUrl.fromLocalFile(temp_file_real_func_2d.name))
+
+
+
 
 
     def update_plot(self):
