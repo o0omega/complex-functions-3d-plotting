@@ -21,12 +21,11 @@ class PlotlyApp(QMainWindow):
         splitter.setHandleWidth(8)
         splitter.setStyleSheet("QSplitter::handle { background: #5b5b5b; border: 1px solid #555; }")
 
-        # Left side for input and options
+        # Left side for update button, function inputs and options 
         left_layout = QVBoxLayout()
         left_widget = QWidget()
         left_widget.setLayout(left_layout)
 
-        # Create update button, input field, and options as separate widgets
         self.create_widgets(left_layout)
 
         # Right side for the graphs (using QWebEngineView for each graph)
@@ -223,7 +222,7 @@ class PlotlyApp(QMainWindow):
         for cmap in colormaps:
             self.colormap.addItem(cmap)
 
-        # X and Y labels and inputs
+        # X, Y, Z labels and inputs
         x_label = QLabel("X:", self)
         y_label = QLabel("Y:", self)
         z_label = QLabel("Z:", self)
