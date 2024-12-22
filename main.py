@@ -369,8 +369,8 @@ class PlotlyApp(QMainWindow):
                 'dstack': np.dstack,
                 'column_stack': np.column_stack,
                 'transpose': np.transpose,
-                'gamma': special.gamma,  # Include scipy functions if needed
-                'factorial': lambda x: special.gamma(x-1)
+                'gamma': special.gamma,
+                'factorial': lambda x: special.gamma(x + 1)
             }
 
             # Define a function that will evaluate the expressions
